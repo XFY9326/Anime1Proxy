@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anime1 Proxy</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        .url-section {
+            margin-bottom: 20px;
+        }
+
+        .preview {
+            margin-top: 10px;
+            color: gray;
+            font-size: 0.9em;
+        }
+
+        .form-group {
+            display: flex;
+            align-items: center;
+            margin-top: 10px;
+
+            label {
+                margin-right: 10px;
+            }
+
+            button {
+                margin-left: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+<h1>Anime1 Proxy:</h1>
+<div class="url-section">
+    <p>> Base URL: <span id="baseUrl"></span></p>
+</div>
+
+<div class="url-section">
+    <p>> Parse URL to JSON detail:</p>
+    <div class="form-group">
+        <label for="urlInput" style="float:left">Enter URL:</label>
+        <input type="text" id="urlInput" style="width: 500px" placeholder="<Url>" oninput="updatePreview('p')">
+        <button onclick="navigate('p')">Go</button>
+    </div>
+    <p class="preview" id="previewUrl"></p>
+</div>
+
+<div class="url-section">
+    <p>> List all recent video categories:</p>
+    <p class="preview" id="previewListUrl"></p>
+    <button onclick="navigate('l')">Go</button>
+</div>
+
+<div class="url-section">
+    <p>> Open category by category ID:</p>
+    <div class="form-group">
+        <label for="categoryIdInput">Enter Category ID:</label>
+        <input type="text" id="categoryIdInput" placeholder="<CategoryId>" oninput="updatePreview('c')">
+        <button onclick="navigate('c')">Go</button>
+    </div>
+    <p class="preview" id="previewCategoryUrl"></p>
+</div>
+
+<div class="url-section">
+    <p>> Open video by post ID:</p>
+    <div class="form-group">
+        <label for="postIdInput">Enter Post ID:</label>
+        <input type="text" id="postIdInput" placeholder="<PostId>" oninput="updatePreview('v')">
+        <button onclick="navigate('v')">Go</button>
+    </div>
+    <p class="preview" id="previewPostUrl"></p>
+</div>
+
+<script>
+    function updatePreview(type) {
+        const baseUrl = document.getElementById('baseUrl').innerText;
+        let inputValue;
+
+        if (type === 'p') {
+            inputValue = document.getElementById('urlInput').value || '';
+            document.getElementById('previewUrl').innerText = `${baseUrl}/p?url=${encodeURIComponent(inputValue)}`;
+        } else if (type === 'c') {
+            inputValue = document.getElementById('categoryIdInput').value || '';
+            document.getElementById('previewCategoryUrl').innerText = `${baseUrl}/c/${inputValue}`;
+        } else if (type === 'v') {
+            inputValue = document.getElementById('postIdInput').value || '';
+            document.getElementById('previewPostUrl').innerText = `${baseUrl}/v/${inputValue}`;
+        }
+        document.getElementById('previewListUrl').innerText = `${baseUrl}/l`;
+    }
+
+    function navigate(type) {
+        const baseUrl = document.getElementById('baseUrl').innerText;
+        let inputValue;
+
+        if (type === 'p') {
+            inputValue = document.getElementById('urlInput').value;
+            window.open(`${baseUrl}/p?url=${encodeURIComponent(inputValue)}`, '_blank');
+        } else if (type === 'l') {
+            window.open(`${baseUrl}/l`, '_blank');
+        } else if (type === 'c') {
+            inputValue = document.getElementById('categoryIdInput').value;
+            window.open(`${baseUrl}/c/${inputValue}`, '_blank');
+        } else if (type === 'v') {
+            inputValue = document.getElementById('postIdInput').value;
+            window.open(`${baseUrl}/v/${inputValue}`, '_blank');
+        }
+    }
+
+    document.getElementById('baseUrl').innerText = window.location.toString().replace(/\/$/, "");
+
+    updatePreview('p');
+    updatePreview('c');
+    updatePreview('v');
+</script>
+</body>
+</html>
