@@ -103,6 +103,12 @@ object ApiClient {
             document.getElementsByTag("script").first { "categoryID" in it.data() }.data()
         )?.groups?.get(1)?.value?.trim() ?: error("Unknown category id")
         val categoryTitle = document.getElementsByClass("page-title").firstOrNull()?.text()?.trim() ?: error("No page title found")
+        val preUrl = document.getElementsByClass("nav-previous").firstOrNull()
+            ?.getElementsByTag("a")?.firstOrNull()
+            ?.attr("href")?.let { Url(it) }
+        val nextUrl = document.getElementsByClass("nav-next").firstOrNull()
+            ?.getElementsByTag("a")?.firstOrNull()
+            ?.attr("href")?.let { Url(it) }
         val posts = parseVideoPosts(url, document.body())
 
         return VideoCategoryPost(
@@ -110,41 +116,79 @@ object ApiClient {
             title = categoryTitle,
             url = url,
             posts = posts,
+            preUrl = preUrl,
+            nextUrl = nextUrl,
         )
     }
 
-    private fun parseVideoArticlePage(url: Url, html: String, category: Boolean? = null): VideoArticle {
-        val document = Jsoup.parse(html)
+    private suspend fun getVideoCategoryPost(url: Url): VideoCategoryPost? {
+        val response = client.get(url)
+        val document = Jsoup.parse(response.bodyAsText())
+        if (document.body().hasClass("category")) {
+            return parseVideoCategoryPost(response.request.url, document)
+        }
+        return null
+    }
+
+    private suspend fun getVideoArticlePage(url: Url, category: Boolean? = null): VideoArticle {
+        val response = client.get(url)
+        val responseUrl = response.request.url
+        val document = Jsoup.parse(response.bodyAsText())
         val bodyElement = document.body()
         return if (bodyElement.hasClass("category")) {
             if (category == false) error("Excepted video post, got ${bodyElement.className()}")
-            parseVideoCategoryPost(url, document)
+            val currentPage = parseVideoCategoryPost(responseUrl, document)
+            if (currentPage.preUrl == null && currentPage.nextUrl == null) {
+                currentPage
+            } else {
+                var handlePage: VideoCategoryPost? = currentPage
+                val allPagesPosts = mutableListOf<List<VideoPost>>()
+                while (handlePage?.preUrl != null) {
+                    handlePage = getVideoCategoryPost(handlePage.preUrl!!)?.also {
+                        allPagesPosts.add(0, it.posts)
+                    }
+                }
+                handlePage = currentPage
+                allPagesPosts.add(currentPage.posts)
+                while (handlePage?.nextUrl != null) {
+                    handlePage = getVideoCategoryPost(handlePage.nextUrl!!)?.also {
+                        allPagesPosts.add(it.posts)
+                    }
+                }
+                val allPosts = allPagesPosts.flatten()
+                currentPage.copy(
+                    posts = if (allPosts.all { it.episode == null }) {
+                        allPosts.reversed()
+                    } else {
+                        allPosts.sorted()
+                    }
+                )
+            }
         } else if (bodyElement.hasClass("single-post")) {
             if (category == true) error("Excepted video category post, got ${bodyElement.className()}")
-            parseVideoPosts(url, bodyElement).first()
+            parseVideoPosts(responseUrl, bodyElement).first()
         } else {
             error("Unknown article content")
         }
     }
 
     suspend fun getVideoPost(postId: Int): VideoPost {
-        val response = client.get {
-            url.takeFrom(WEB_URL).appendPathSegments(postId.toString())
-        }
-        return parseVideoArticlePage(response.request.url, response.bodyAsText(), false) as VideoPost
+        val url = URLBuilder(WEB_URL).apply {
+            appendPathSegments(postId.toString())
+        }.build()
+        return getVideoArticlePage(url, false) as VideoPost
     }
 
     suspend fun getVideoCategoryPost(categoryId: Int): VideoCategoryPost {
-        val response = client.get {
-            url.takeFrom(WEB_URL).parameters.append("cat", categoryId.toString())
-        }
-        return parseVideoArticlePage(response.request.url, response.bodyAsText(), true) as VideoCategoryPost
+        val url = URLBuilder(WEB_URL).apply {
+            parameters.append("cat", categoryId.toString())
+        }.build()
+        return getVideoArticlePage(url, true) as VideoCategoryPost
     }
 
     suspend fun getVideoArticle(url: Url): VideoArticle {
         require(url.host.endsWith(WEB_URL.host)) { "Invalid video article URL: $url" }
-        val response = client.get(url)
-        return parseVideoArticlePage(response.request.url, response.bodyAsText())
+        return getVideoArticlePage(url)
     }
 
     suspend fun getVideoPlay(post: VideoPost): VideoPlay {

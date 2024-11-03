@@ -44,7 +44,9 @@ data class VideoCategoryPost(
     override val id: Int,
     override val title: String,
     override val url: Url,
-    val posts: List<VideoPost>
+    val posts: List<VideoPost>,
+    val preUrl: Url? = null,
+    val nextUrl: Url? = null,
 ) : VideoArticle
 
 data class VideoCategory(
